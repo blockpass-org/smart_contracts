@@ -1,0 +1,27 @@
+{
+  "name": "blockpass-org-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for Blockpass services",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blockpass-org/smart_contracts.git"
+  },
+  "keywords": [
+    "contract",
+    "ethereum",
+    "solidity"
+  ],
+  "author": "blockpass-org",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/blockpass-org/smart_contracts/issues"
+  },
+  "homepage": "https://github.com/blockpass-org/smart_contracts#readme",
+  "dependencies": {
+    "zeppelin-solidity": "https://github.com/blockpass-org/zeppelin-solidity"
+  }
+}
