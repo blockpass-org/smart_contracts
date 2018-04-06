@@ -15,9 +15,15 @@ contract Pass1_5 is Pass1 {
 
     function Pass1_5() {
         owner = msg.sender;
+        // initial token amount is 10^9 (1 billion), divisible to 6 decimals
         totalSupply = 0;
         balances[owner] = totalSupply;
     }
+
+    // function setUserContractAddress(address _usersContractAddr) isOwner public {
+    //     usersContractAddress = _usersContractAddr;
+    //     usersContract = Users(_usersContractAddr);
+    // }
 
     function allowRedeemFrom(address tokenAddress, uint256 numerator, uint256 denominator) onlyOwner public {
         ConvertRate rate;
@@ -32,7 +38,6 @@ contract Pass1_5 is Pass1 {
     } 
 
     function redeem(address to, uint256 amount) public {
-        require(whiteList[to] == true);
         require(tokenWhiteList[msg.sender].valid == true);
         require(tokenWhiteList[msg.sender].numerator > 0 && tokenWhiteList[msg.sender].denominator > 0);
 

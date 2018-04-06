@@ -4,9 +4,7 @@ import "zeppelin-solidity/contracts/ownership/Ownable.sol";
 contract Lockable is Ownable {
     bool lock;
 
-    function Lockable() 
-        Ownable()
-    {
+    function Lockable() {
         lock = false;
     }
 

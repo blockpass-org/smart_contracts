@@ -4,9 +4,7 @@ import './Lockable.sol';
 contract Operable is Lockable {
     mapping (address => bool) operators;
 
-    function Operable()
-        Lockable()
-    {
+    function Operable() {
     }
 
     modifier isOperator() {
@@ -22,18 +20,15 @@ contract Operable is Lockable {
     event OperatorAdded(address operatorAddr);
     event OperatorUpdated(address operatorAddr);
     event OperatorRemoved(address operatorAddr);
-
+    // Only add if msg is not operator
     function addOperator(address operatorAddr) onlyOwner {
+        require(operators[operatorAddr] == false);
         operators[operatorAddr] = true;
         OperatorAdded(operatorAddr);
     }
-
-    function updateOperatorLevel(address operatorAddr) onlyOwner {
-        operators[operatorAddr] = true;
-        OperatorUpdated(operatorAddr);
-    }
-
+    // Only remove if msg is operator
     function removeOperator(address operatorAddr) onlyOwner {
+        require(operators[operatorAddr] == true);
         delete operators[operatorAddr];
         OperatorRemoved(operatorAddr);
     }
