@@ -1,221 +1,234 @@
 pragma solidity ^0.4.8;
-import "zeppelin-solidity/contracts/token/StandardToken.sol";
+import "zeppelin-solidity/contracts/token/ERC20/PausableToken.sol";
+import "zeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
+import "zeppelin-solidity/contracts/token/ERC20/DetailedERC20.sol";
+import "zeppelin-solidity/contracts/token/ERC20/BurnableToken.sol";
+import "zeppelin-solidity/contracts/ownership/Whitelist.sol";
 import "./Operable.sol";
+import "zeppelin-solidity/contracts/math/SafeMath.sol";
 
-contract Pass1 is StandardToken, Operable {
+contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Operable, Whitelist
+{
+
+    using SafeMath for uint256;
     
-    // whiteList
-    //  list of account addresses which are whitelisted by Operators
-    //  type: mapping
-    //  usage: only Users in whiteList are able to send Pass token. Users not in whitelist are only able to receive Pass token
-    mapping (address => bool) whiteList;
+    MintableToken public newToken = MintableToken(0x0);
 
-    // redeemables
-    //  list of token smart contract addresses which users can transform their Pass1 token to
-    //  type: mapping
-    //  usage: in the future, when logical updates need to be integrated to the smart contract
-    //          we can deploy an upgrade version of this smart contract, then allow user to convert
-    //          their tokens from old smart contract to the new one
-    mapping (address => bool) redeemables;
+    /*
+    * @dev will be triggered every time a user mints his current token to the upgraded one
+    * @param beneficiary receiving address
+    * amount amount of token to be minted
+    */
+    event LogMint(address beneficiary, uint256 amount);
 
-    // isFrozen
-    //  check if contract is in frozen state
-    //  type: boolean
-    //  usage: frozen state will be used to force users to redeem current token to a newer one,
-    //          in case of smart contract upgrade. In frozen state, all transfer can't be made 
-    //          and user can only call redeem() function
-    bool isFrozen = false;
+    /*
+    * @dev checks if an upgraded version of Pass token contract is available
+    * @return true new upgrade token is setup
+    * exception otherwise
+    */
+    modifier hasUpgrade() {
+        require(newToken != MintableToken(0x0));
+        _;
+    }
 
-    // event triggered when an user address is added to whitelist
-    event UserAdded(address userAddr, address operatorAddr);
-
-    // event triggered when an user address is removed from whitelist
-    event UserRemoved(address userAddr, address operatorAddr);
-
-    // event triggered when a token contract address is added to redeemable list
-    event RedeemableAdded(address addr);
-
-    // event triggered when a token contract address is removed from redeemable list
-    event RedeemableRemoved(address addr);
-
-    // constructor
-    //  initially assign all token amount to owner address
-    function Pass1() {
+    /*
+    * @dev initialize default attributes for the Pass token contract
+    */
+    function Pass1() 
+        DetailedERC20 ("Blockpass","PASS",6)
+    {
         owner = msg.sender;
         // initial token amount is 10^9 (1 billion), divisible to 6 decimals
-        totalSupply = 1000000000000000;
-        balances[owner] = totalSupply;
-        whiteList[owner] = true;
+        totalSupply_ = 1000000000000000;
+        balances[owner] = totalSupply_;
+        whitelist[owner] = true;
     }
 
-    // userInWhitelist
-    //  modifier
-    //  will throw if user is not in whitelist
-    modifier userInWhitelist(address addr){
-        require(whiteList[addr] == true);
-        _;
-    }
-
-    // userNotInWhitelist
-    //  modifier
-    //  will throw if user is not in whitelist
-    modifier userNotInWhitelist(address addr){
-        require(whiteList[addr] == false);
-        _;
-    }
-
-    modifier contractNotFrozen() {
-        require(isFrozen == false);
-        _;
-    }
-
-    // addUser
-    //  function
-    //  add new user to whitelist, can only be called by owner or operators
-    function addUser(address addr) 
-        userNotInWhitelist(addr) 
-        isOwnerOrOperator 
-        returns (bool success)
+    /*
+    * @dev assign address of the new Pass token contract, can only be triggered by owner address
+    * @param _newToken address of the new Token contract
+    * @return none
+    */
+    function upgrade(MintableToken _newToken) 
+        onlyOwner 
+        public 
     {
-        whiteList[addr] = true;
-        UserAdded(addr, msg.sender);
+        newToken = _newToken;
+    }
+
+    /*
+    * @dev override from BurnableToken
+    * @param _value amount of token to burn
+    * @return exception to prevent calling directly to Pass1 token
+    */
+    function burn(uint256 _value) 
+        public 
+    {
+        revert();
+        _value = _value; // to silence compiler warning
+    }
+
+    /*
+    * @dev override from MintableToken
+    * @param _to address of receivers
+    * _amount amount of token to redeem to
+    * @return exception to prevent calling directly to Pass1 token
+    */
+    function mint(address _to, uint256 _amount) 
+        onlyOwner 
+        canMint 
+        public 
+        returns (bool) 
+    {
+        revert();
         return true;
     }
 
-    // removeUser
-    //  function
-    //  remove user from the whitelist, can only be called by owner or operators 
-    function removeUser(address addr) 
-        userInWhitelist(addr) 
-        isOwnerOrOperator 
-        returns (bool success)
+    /*
+    * @dev allow whitelisted user to redeem his Pass1 token to a newer version of the token
+    * can only be triggered if there's a newer version of Pass token, and when the contract is pause
+    * @param none
+    * @return none
+    */
+    function mintTo() 
+        hasUpgrade 
+        whenPaused
+        onlyWhitelisted
+        public 
     {
-        require(addr != owner);
-        whiteList[addr] = false;
-        UserRemoved(addr, msg.sender);
-        return true;
+        var balance = balanceOf(msg.sender);
+
+        // burn the tokens in this token smart contract
+        super.burn(balance);
+
+        // mint tokens in the new token smart contract
+        require(newToken.mint(msg.sender, balance));
+        emit LogMint(msg.sender, balance);
+    }
+    
+    /*
+    * @dev transfer ownership of token between whitelisted accounts
+    * can only be triggered when contract is not paused
+    * @param _to address of receiver
+    * _value amount to token to transfer
+    * @return true if transfer succeeds
+    * false if not enough gas is provided, or if _value is larger than current user balance
+    */
+    function transfer(address _to, uint256 _value) 
+        whenNotPaused
+        onlyWhitelisted 
+        public 
+        returns (bool success) 
+    {
+        return super.transfer(_to, _value);
     }
 
-    // checkUserWhiteList
-    //  constant
-    //  check if user is available in the whitelist
+    /*
+    * @dev transfer ownership of token on behalf of one whitelisted account address to another
+    * can only be triggered when contract is not paused
+    * @param _from sending address
+    * _to receiving address
+    * _value amount of token to transfer
+    * @return true if transfer succeeds
+    * false if not enough gas is provided, or if _value is larger than maximum allowance / user balance
+    */
+    function transferFrom(address _from, address _to, uint256 _value) 
+        whenNotPaused
+        public 
+        returns (bool success) 
+    {
+        require(whitelist[_from] == true);
+        return super.transferFrom(_from, _to, _value);
+    }
+
+    /*
+    * @dev check if the specified address is in the contract whitelist
+    * @param _addr user address
+    * @return true if user address is in whitelist
+    * false otherwise
+    */
     function checkUserWhiteList(address addr) 
         view 
         public 
         returns (bool) 
     {
-        return whiteList[addr];
+        return whitelist[addr];
     }
 
-    // addRedeemable
-    //  function
-    //  add smart contract address to redeemable list, can only be called by owner
-    function addRedeemable(address redeemableAddr) 
-        onlyOwner 
+    /*
+    * @dev add an user address to the contract whitelist
+    * override from WhiteList contract to allow calling from owner or operators addresses
+    * @param addr address to be added
+    * @return true if address is successfully added
+    * false if address is already in the whitelist
+    */
+    function addAddressToWhitelist(address addr) 
+        isOwnerOrOperator
         public 
-        returns (bool success)
+        returns(bool) 
     {
-        redeemables[redeemableAddr] = true;
-        RedeemableAdded(redeemableAddr);
-        return true;
+        if (!whitelist[addr]) {
+            whitelist[addr] = true;
+            WhitelistedAddressAdded(addr);
+            return true;
+        }
+        return false;
     }
 
-    // removeRedeemable
-    //  function
-    //  remove smart contract address from redeemable list, can only be called by owner
-    function removeRedeemable(address redeemableAddr) 
-        onlyOwner 
+    /**
+    * @dev add addresses to the whitelist
+    * override from WhiteList contract to allow calling from owner or operators addresses
+    * @param addrs addresses
+    * @return true if at least one address was added to the whitelist, 
+    * false if all addresses were already in the whitelist  
+    */
+    function addAddressesToWhitelist(address[] addrs) 
+        isOwnerOrOperator
         public 
-        returns (bool success)
+        returns(bool success) 
     {
-        require(redeemables[redeemableAddr] == true);
-        delete redeemables[redeemableAddr];
-        RedeemableRemoved(redeemableAddr);
-        return true;
+        for (uint256 i = 0; i < addrs.length; i++) {
+            if (addAddressToWhitelist(addrs[i])) {
+                success = true;
+            }
+        }
     }
 
-    // checkUserRedeemList
-    //  constant
-    //  check if an address is in redeemable list
-    function checkUserRedeemList(address addr) 
-        view 
+    /**
+    * @dev remove an address from the whitelist
+    * override from WhiteList contract to allow calling from owner or operators addresses
+    * @param addr address
+    * @return true if the address was removed from the whitelist, 
+    * false if the address wasn't in the whitelist in the first place 
+    */
+    function removeAddressFromWhitelist(address addr) 
+        isOwnerOrOperator
         public 
-        returns (bool) 
+        returns(bool success) 
     {
-        return redeemables[addr];
+        if (whitelist[addr]) {
+            whitelist[addr] = false;
+            WhitelistedAddressRemoved(addr);
+            success = true;
+        }
     }
 
-    // redeem
-    //  function
-    //  will be called when user wants to redeem another token to Pass1 token
-    function redeem(address to, uint256 amount) 
-        contractNotFrozen 
+    /**
+    * @dev remove addresses from the whitelist
+    * override from WhiteList contract to allow calling from owner or operators addresses
+    * @param addrs addresses
+    * @return true if at least one address was removed from the whitelist, 
+    * false if all addresses weren't in the whitelist in the first place
+    */
+    function removeAddressesFromWhitelist(address[] addrs) 
+        isOwnerOrOperator
         public 
+        returns(bool success) 
     {
-        // I'm the firstborn, no one can redeem to me
-        revert();
-    }
-
-    // redeemTo
-    //  function
-    //  will be called when user wants to redeem from Pass1 to another token, the receiving smart contract
-    //  must implement the redeem(address,uint256) function
-    function redeemTo(address to, address _toOwner, uint256 amount) 
-        public 
-    {
-        require(whiteList[msg.sender] == true);
-        require(to != address(0x0) && balances[msg.sender] >= amount);
-        require(redeemables[to] == true);
-
-        totalSupply -= amount;
-        balances[msg.sender] -= amount;
-        if (!to.call.gas(msg.gas)(bytes4(keccak256("redeem(address,uint256)")), _toOwner, amount))
-            revert();
-    }
-
-    // ###  ERC20 functions ###
-    
-    // transfer
-    //  function
-    //  transfer ownership of token from one account address to another
-    function transfer(address _to, uint256 _value) 
-        contractNotFrozen 
-        public 
-        returns (bool success) 
-    {
-        require(whiteList[msg.sender] == true);
-        return super.transfer(_to, _value);
-    }
-
-    // transferFrom
-    //  function
-    //  transfer ownership of token on behalf of one account address to another
-    function transferFrom(address _from, address _to, uint256 _value) 
-        contractNotFrozen 
-        public 
-        returns (bool success) 
-    {
-        require(whiteList[_from] == true);
-        return super.transferFrom(_from, _to, _value);
-    }
-
-    // freezeContract
-    //  function
-    //  set smart contract to frozen state, can only be called by owner
-    function freezeContract() 
-        onlyOwner 
-        public 
-    {
-        isFrozen = true;
-    }
-
-    // unfreezeContract
-    //  function
-    //  set smart contract to unfrozen state, can only be called by owner
-    function unFreezeContract() 
-        onlyOwner 
-        public 
-    {
-        isFrozen = false;
+        for (uint256 i = 0; i < addrs.length; i++) {
+            if (removeAddressFromWhitelist(addrs[i])) {
+                success = true;
+            }
+        }
     }
 }

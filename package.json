@@ -22,6 +22,6 @@
   },
   "homepage": "https://github.com/blockpass-org/smart_contracts#readme",
   "dependencies": {
-    "zeppelin-solidity": "https://github.com/blockpass-org/zeppelin-solidity"
+    "zeppelin-solidity": "^1.8.0"
   }
 }

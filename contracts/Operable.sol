@@ -1,10 +1,10 @@
 pragma solidity ^0.4.4;
-import './Lockable.sol';
-
-contract Operable is Lockable {
+import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
+contract Operable is Pausable {
     mapping (address => bool) operators;
 
-    function Operable() {
+    function Operable()
+    {
     }
 
     modifier isOperator() {
@@ -35,5 +35,9 @@ contract Operable is Lockable {
 
     function checkOperator(address addr) view returns (bool) {
         return operators[addr];
+    }
+    
+    function checkPause() view returns (bool){
+        return paused;
     }
 }
