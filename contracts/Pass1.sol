@@ -34,17 +34,17 @@ contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Op
     /*
     * @dev initialize default attributes for the Pass token contract
     */
-    function Pass1() 
+    constructor() 
         DetailedERC20 ("Blockpass","PASS",6)
     {
         owner = msg.sender;
-        OwnershipTransferred(address(0x0), owner);
+        emit OwnershipTransferred(address(0x0), owner);
         // initial token amount is 10^9 (1 billion), divisible to 6 decimals
         totalSupply_ = 1000000000000000;
         balances[owner] = totalSupply_;
-        Transfer(address(0x0), owner, 1000000000000000);
+        emit Transfer(address(0x0), owner, 1000000000000000);
         whitelist[owner] = true;
-        WhitelistedAddressAdded(owner);
+        emit WhitelistedAddressAdded(owner);
     }
 
     /*
@@ -99,7 +99,7 @@ contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Op
         onlyWhitelisted
         public 
     {
-        var balance = balanceOf(msg.sender);
+        uint256 balance = balanceOf(msg.sender);
 
         // burn the tokens in this token smart contract
         super.burn(balance);
@@ -172,7 +172,7 @@ contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Op
     {
         if (!whitelist[addr]) {
             whitelist[addr] = true;
-            WhitelistedAddressAdded(addr);
+            emit WhitelistedAddressAdded(addr);
             return true;
         }
         return false;
@@ -212,7 +212,7 @@ contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Op
         require(addr != owner);
         if (whitelist[addr]) {
             whitelist[addr] = false;
-            WhitelistedAddressRemoved(addr);
+            emit WhitelistedAddressRemoved(addr);
             success = true;
         }
     }

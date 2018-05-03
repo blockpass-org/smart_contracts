@@ -3,7 +3,7 @@ import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 contract Operable is Pausable {
     mapping (address => bool) operators;
 
-    function Operable()
+    constructor()
     {
     }
 
@@ -15,17 +15,18 @@ contract Operable is Pausable {
     event OperatorAdded(address operatorAddr);
     event OperatorUpdated(address operatorAddr);
     event OperatorRemoved(address operatorAddr);
+
     // Only add if msg is not operator
     function addOperator(address operatorAddr) onlyOwner {
         require(operators[operatorAddr] == false);
         operators[operatorAddr] = true;
-        OperatorAdded(operatorAddr);
+        emit OperatorAdded(operatorAddr);
     }
     // Only remove if msg is operator
     function removeOperator(address operatorAddr) onlyOwner {
         require(operators[operatorAddr] == true);
         delete operators[operatorAddr];
-        OperatorRemoved(operatorAddr);
+        emit OperatorRemoved(operatorAddr);
     }
 
     function checkOperator(address addr) view returns (bool) {
