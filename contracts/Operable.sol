@@ -7,11 +7,6 @@ contract Operable is Pausable {
     {
     }
 
-    modifier isOperator() {
-        require(operators[msg.sender] == true);
-        _;
-    }
-
     modifier isOwnerOrOperator() {
         require(msg.sender == owner || operators[msg.sender] == true);
         _;

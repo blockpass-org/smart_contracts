@@ -4,8 +4,8 @@ import "zeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
 import "zeppelin-solidity/contracts/token/ERC20/DetailedERC20.sol";
 import "zeppelin-solidity/contracts/token/ERC20/BurnableToken.sol";
 import "zeppelin-solidity/contracts/ownership/Whitelist.sol";
-import "./Operable.sol";
 import "zeppelin-solidity/contracts/math/SafeMath.sol";
+import "./Operable.sol";
 
 contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Operable, Whitelist
 {
@@ -38,10 +38,13 @@ contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Op
         DetailedERC20 ("Blockpass","PASS",6)
     {
         owner = msg.sender;
+        OwnershipTransferred(address(0x0), owner);
         // initial token amount is 10^9 (1 billion), divisible to 6 decimals
         totalSupply_ = 1000000000000000;
         balances[owner] = totalSupply_;
+        Transfer(address(0x0), owner, 1000000000000000);
         whitelist[owner] = true;
+        WhitelistedAddressAdded(owner);
     }
 
     /*
@@ -51,7 +54,7 @@ contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Op
     */
     function upgrade(MintableToken _newToken) 
         onlyOwner 
-        public 
+        public  
     {
         newToken = _newToken;
     }
@@ -206,6 +209,7 @@ contract Pass1 is DetailedERC20, PausableToken, BurnableToken, MintableToken, Op
         public 
         returns(bool success) 
     {
+        require(addr != owner);
         if (whitelist[addr]) {
             whitelist[addr] = false;
             WhitelistedAddressRemoved(addr);
